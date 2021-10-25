@@ -1,0 +1,84 @@
+Code First or Database First
+-- Code First
+Before we start building the data access layer, let’s take a moment to discuss the two different ways to work
+with EF Core and your database: code first and database first. Both are valid ways to work with EF Core, and
+the choice is largely up to your development team as to which approach to use.
+Code first means that you create and configure your entity classes and the derived DbContext in
+code and then use migrations to update the database. This is how most greenfield, or new, projects are
+developed. The advantage is that as you build your application, your entities evolve based on the needs of
+your application. The migrations keep the database in sync, so the database design evolves along with your
+application. This emerging design process is popular with agile development teams, as you build the right
+parts at the right time.
+-- Database First
+If you already have a database or prefer to have your database design drive your application, that is
+referred to as database first. Instead of creating the derived DbContext and all of the entities manually, you
+scaffold the classes from the database. When the database changes, you need to re-scaffold your classes to
+keep your code in sync with the database. Any custom code in the entities or the derived DbContext must
+be placed in partial classes so it doesn’t get overwritten when the classes are re-scaffolded. Fortunately, the
+scaffolding process creates partial classes just for that reason.
+Whichever method you chose, code first or database first, know that it is a commitment. If you are
+using code first, all changes are made to the entity and context classes, and the database is updated using
+migrations. If you are working database first, all changes must be made in the database, and then the classes
+are re-scaffolded. With some effort and planning, you can switch from database first to code first (and vice
+versa), but you should not be making manual changes to the code and the database at the same time.
+
+
+-- Scaffold the DbContext and Entities
+-- Use the EF Core CLI tools to scaffold the AutoLot database into the entities and the DbContext-derived
+class with the following command (all on one line):
+dotnet ef dbcontext scaffold "server=(localdb)\mssqllocaldb;Database=AutoLot;Trusted_Connection=True;" Microsoft.EntityFrameworkCore.SqlServer -d -c ApplicationDbContext --context-namespace EF.Dal.EfStructures --context-dir EfStructures --no-onconfiguring -n EF.Models.Entities -o ..\EF.Models\Entities -f
+
+-- Create the Initial Migration
+Recall that the first migration will create three files: the two files for the migration partial class and the
+third file is the complete model snapshot. Enter the following in a command prompt in the AutoLot.Dal
+directory to create a new migration named Initial (using the ApplicationDbContext instance that was
+just scaffolded) and placing the migration files in the EfStructures\Migrations folder of the AutoLot.Dal
+project:
+dotnet ef migrations add Initial -o EfStructures\Migrations -c EF.Dal.EfStructures.ApplicationDbContext
+
+-- To confirm that the migration was created and is waiting to be applied, execute the list command.
+dotnet ef migrations list -c EF.Dal.EfStructures.ApplicationDbContext
+
+-- Applying the Migration
+The easiest method of applying the migration to the database is to drop the database and re-create it. If that
+is an option, you can enter the following commands and move on to the next section:
+dotnet ef database drop -f
+dotnet ef database update Initial -c EF.Dal.EfStructures.ApplicationDbContext
+
+-- If dropping and re-creating the database is not an option (e.g., it is an Azure SQL database), then EF
+Core needs to believe that the migration has been applied. Fortunately, this is straightforward with EF Core
+doing all of the work. Start by creating a SQL script from the migration by using the following command:
+dotnet ef migrations script --idempotent -o FirstMigration.sql
+
+-- Annotations and Navigation Properties
+The ForeignKey annotation lets EF Core know which property is the backing field for the navigation
+property. By convention, <TypeName>Id would automatically be set as the foreign key property, but in the
+previous example it is explicitly set. This supports different naming styles as well as having more than one
+foreign key to the same table. It also (in my honest opinion) increases the readability of the code.
+InverseProperty informs EF Core of how the tables relate by indicating what the navigation property is
+on the other entities that navigates back to this entity. InverseProperty is required when an entity relates to
+another entity more than once and also (again, in my honest opinion) makes the code more readable.
+
+
+-- Override the SaveChanges Method
+The SaveChanges() method on the base DbContext class persists the data changes, additions, and deletions to the database.
+Overriding that method enables exception handing to be encapsulated in one place. With the custom exceptions in place,
+add the EF.Dal.Exceptions using statement to the top of the ApplicationDbContext class. 
+
+
+-- Create the Migration and Update the Database
+Create another migration to update the database. Enter the following commands in the EF.Dal project directory (each command must be
+entered on one line):
+dotnet ef migrations add UpdatedEntities -o EfStructures\Migrations -c EF.Dal.EfStructures.ApplicationDbContext
+dotnet ef database update UpdatedEntities -c EF.Dal.EfStructures.ApplicationDbContext
+
+-- Add the MigrationHelpers Class
+We create the stored procedure and view using a migration, which requires manually coding the migration.
+The reason to do this (instead of just opening Azure Data Studio and running the T-SQL code) is to place all
+of the database configuration in a single process. When everything is contained in migrations, a single call to
+dotnet ef database update ensures the database is current, including EF Core configuration and custom
+SQL.
+Calling the dotnet migrations add command when there aren’t any model changes will still create the
+properly timestamped migration files with empty Up() and Down() methods. Execute the following to create
+the empty migration (but do not apply the migration):
+dotnet ef migrations add SQL -o EfStructures\Migrations -c EF.Dal.EfStructures.ApplicationDbContext

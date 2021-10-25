@@ -1,0 +1,16 @@
+﻿-- Adding Repositories
+A common data access design pattern is the repository pattern. As described by Martin Fowler (www.
+martinfowler.com/eaaCatalog/repository.html), the core of this pattern is to mediate between the
+domain and data mapping layers. Having a generic base repository that contains the common data access
+code helps to eliminate duplication of code. Having specific repositories and interfaces that derive from a
+base repository also works well with the dependency injection framework in ASP.NET Core.
+Each of the domain entities in the AutoLot data access layer will have a strongly typed repo to
+encapsulate all of the data access work. 
+
+-- Entity-Specific Repo Interfaces
+Each entity will have a strongly typed repository derived from BaseRepo<T> and 
+an interface that implements IRepo<T>.
+
+-- Implement the Entity-Specific Repositories
+The implemented repositories gain most of their functionality from the base class. This section covers the
+functionality added to or overridden from the base repository.
